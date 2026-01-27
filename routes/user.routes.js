@@ -1,50 +1,42 @@
 import express from 'express';
 
-import { db } from '../db/index.js';
-import { usersTable } from '../models/user.model.js';
-
-import { randomBytes, createHmac } from 'crypto';
-
 import { signupPostRequestBodySchema } from '../validations/request.validation.js';
 
-import { eq } from 'drizzle-orm';
+import{ hashPasswordWithSalt } from '../utils/hash.js';
+
+import { getUserByEmail, createUserByEmail } from '../services/user.service.js';
 
 const router = express.Router();
 
-router.post('/signup', async(req, res) => {
-    const validationResult = await signupPostRequestBodySchema.safeParseAsync(req.body);
+router.post('/signup', async (req, res) => {
+  const validationResult =
+    await signupPostRequestBodySchema.safeParseAsync(req.body);
 
-    if(validationResult.error){
-        return res.json({ error: validationResult.error.format() });
-    }
+  if (validationResult.error) {
+    return res.json({ error: validationResult.error.format() });
+  }
 
-    const { firstname, lastname, email, password } = validationResult.data;
+  const { firstname, lastname, email, password } = validationResult.data;
 
-    const [existingUser] = await db
-        .select({
-            id:usersTable.id
-        })
-        .from(usersTable)
-        .where(eq(usersTable.email, email));
+  const existingUser = await getUserByEmail(email);
+  if (existingUser) {
+    return res.json({ error: `User with email ${email} already exists.` });
+  }
 
-    if(existingUser){
-        return res.json({ error: `User with email ${email} already exists.`});
-    }
+  const { salt, password: hashedPassword } =
+    hashPasswordWithSalt(password);
 
-    const salt = randomBytes(256).toString('hex');
-    const hashedPassword = createHmac('sha256', salt).digest('hex');
+  const user = await createUserByEmail(
+    email,
+    firstname,
+    lastname,
+    hashedPassword,
+    salt
+  );
 
-    const [user] = await db
-        .insert(usersTable)
-        .values({
-            email,
-            firstname,
-            lastname,
-            password: hashedPassword,
-            salt
-        }).returning({ id: usersTable.id  });
-
-    return res.status(201).json({ data: { userId: user.id } });
+  return res.status(201).json({
+    data: { userId: user.id },
+  });
 });
 
 export default router;
