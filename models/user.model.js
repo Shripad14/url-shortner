@@ -12,5 +12,5 @@ export const usersTable = pgTable("users", {
   salt: text().notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updateAt: timestamp('updated_at').$onUpdate(() => Date()),
+  updateAt: timestamp('updated_at').$onUpdate(() => new Date()),
 });
