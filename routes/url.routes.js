@@ -8,7 +8,7 @@ import { urlsTable } from "../models/url.model.js";
 import { ensureAuthenticated } from "../middlewares/auth.middleware.js"; 
 
 import { nanoid } from "nanoid";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 const router = express.Router();
 
@@ -55,6 +55,14 @@ router.get('/codes', ensureAuthenticated, async (req, res) => {
   return res.json({ codes });
 });
 
+router.delete('/:id', ensureAuthenticated, async(req, res) => {
+    const id = req.params.id;
+    await db
+        .delete(urlsTable)
+        .where(and(eq(urlsTable.id, id), eq(urlsTable.userId, req.user.id)));
+
+    return res.status(200).json({ deleted: true });
+});
 
 router.get('/:shortCode', async(req, res) => {
     const code = req.params.shortCode;
